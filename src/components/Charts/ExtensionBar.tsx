@@ -1,12 +1,5 @@
-import React from "react";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Cell,
-  ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer,
 } from "recharts";
 import { useDiskStore } from "../../store/diskStore";
 import { formatSize } from "../../utils/format";
@@ -21,9 +14,7 @@ export default function ExtensionBar() {
   const stats = useDiskStore((s) => s.stats);
 
   if (!stats) {
-    return (
-      <div style={{ padding: 16, color: "#555", fontSize: 12 }}>Нет данных</div>
-    );
+    return <div style={{ padding: 16, color: "var(--text-hint)", fontSize: 12 }}>Нет данных</div>;
   }
 
   const data = stats.by_extension.slice(0, 12).map((e) => ({
@@ -33,32 +24,29 @@ export default function ExtensionBar() {
   }));
 
   return (
-    <div style={{ padding: "12px 8px" }}>
-      <div style={{ fontSize: 11, color: "#666", marginBottom: 8, paddingLeft: 4 }}>
-        Топ расширений по размеру
-      </div>
-      <ResponsiveContainer width="100%" height={240}>
+    <div style={{ padding: "12px 8px", height: "100%", boxSizing: "border-box" }}>
+      <ResponsiveContainer width="100%" height="90%">
         <BarChart data={data} margin={{ left: 4, right: 8, top: 4, bottom: 40 }}>
           <XAxis
             dataKey="ext"
-            tick={{ fontSize: 9, fill: "#555", angle: -35, textAnchor: "end" }}
+            tick={<RotatedTick />}
             axisLine={false}
             tickLine={false}
             interval={0}
           />
           <YAxis
             tickFormatter={formatSize}
-            tick={{ fontSize: 9, fill: "#555" }}
+            tick={{ fontSize: 9, fill: "var(--text-hint)" }}
             axisLine={false}
             tickLine={false}
           />
           <Tooltip
-            formatter={(value: number, name: string, props: { payload?: { ext?: string; count?: number } }) => [
+            formatter={(value: number, _name: string, props: { payload?: { ext?: string; count?: number } }) => [
               `${formatSize(value)} (${props.payload?.count?.toLocaleString()} файлов)`,
               props.payload?.ext ?? "",
             ]}
-            contentStyle={{ background: "#1a1a2e", border: "1px solid #2a2a3e", fontSize: 11 }}
-            itemStyle={{ color: "#ccc" }}
+            contentStyle={{ background: "var(--bg-surface)", border: "1px solid var(--border)", fontSize: 11 }}
+            itemStyle={{ color: "var(--text-primary)" }}
           />
           <Bar dataKey="size" radius={[3, 3, 0, 0]}>
             {data.map((_, i) => (
@@ -68,5 +56,24 @@ export default function ExtensionBar() {
         </BarChart>
       </ResponsiveContainer>
     </div>
+  );
+}
+
+function RotatedTick(props: {
+  x?: number; y?: number; payload?: { value: string };
+}) {
+  const { x = 0, y = 0, payload } = props;
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        x={0} y={0} dy={4}
+        textAnchor="end"
+        fill="var(--text-hint)"
+        fontSize={9}
+        transform="rotate(-35)"
+      >
+        {payload?.value}
+      </text>
+    </g>
   );
 }

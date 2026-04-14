@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import {
   BarChart,
   Bar,
@@ -7,7 +7,6 @@ import {
   Tooltip,
   Cell,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 import { useDiskStore } from "../../store/diskStore";
 import { FlatFile } from "../../types";

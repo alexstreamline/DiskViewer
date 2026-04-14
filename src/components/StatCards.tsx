@@ -1,4 +1,3 @@
-import React from "react";
 import { useDiskStore } from "../store/diskStore";
 import { formatSize, truncateEnd } from "../utils/format";
 

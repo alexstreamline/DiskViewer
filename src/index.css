@@ -79,3 +79,14 @@ button {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-hint);
 }
+
+/* ── Animations ──────────────────────────────────────────────── */
+@keyframes scan-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}

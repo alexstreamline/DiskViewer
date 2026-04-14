@@ -1,4 +1,3 @@
-import React from "react";
 import { useDiskStore } from "../../store/diskStore";
 import { CATEGORY_COLORS, CATEGORY_LABELS, FileCategory } from "../../types";
 

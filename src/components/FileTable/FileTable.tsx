@@ -1,23 +1,24 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { invoke } from "@tauri-apps/api/core";
 import { useDiskStore } from "../../store/diskStore";
-import { FlatFile } from "../../types";
-import { CATEGORY_LABELS, FileCategory, CATEGORY_COLORS } from "../../types";
+import { FlatFile, CATEGORY_LABELS, FileCategory, CATEGORY_COLORS } from "../../types";
 import { formatSize, formatDate } from "../../utils/format";
+import { ContextMenu } from "./ContextMenu";
 
 const ROW_HEIGHT = 32;
 
 const COLUMNS = [
-  { key: "name",     label: "Имя",       width: 260 },
-  { key: "category", label: "Тип",       width: 100 },
-  { key: "extension",label: "Расш.",     width: 60 },
-  { key: "size",     label: "Размер",    width: 90 },
-  { key: "modified", label: "Изменён",   width: 110 },
-  { key: "path",     label: "Путь",      width: 300 },
+  { key: "name",      label: "Имя",     width: 260 },
+  { key: "category",  label: "Тип",     width: 100 },
+  { key: "extension", label: "Расш.",   width: 60  },
+  { key: "size",      label: "Размер",  width: 90  },
+  { key: "modified",  label: "Изменён", width: 110 },
+  { key: "path",      label: "Путь",    width: 300 },
 ] as const;
 
 type ColKey = (typeof COLUMNS)[number]["key"];
+
+interface CtxMenu { file: FlatFile; x: number; y: number }
 
 export default function FileTable() {
   const files = useDiskStore((s) => s.files);
@@ -28,9 +29,9 @@ export default function FileTable() {
   const sortDesc = useDiskStore((s) => s.sortDesc);
   const setSortBy = useDiskStore((s) => s.setSortBy);
   const loadFiles = useDiskStore((s) => s.loadFiles);
-  const tree = useDiskStore((s) => s.tree);
 
   const parentRef = useRef<HTMLDivElement>(null);
+  const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
 
   const virtualizer = useVirtualizer({
     count: files.length,
@@ -43,11 +44,7 @@ export default function FileTable() {
     const el = parentRef.current;
     if (!el) return;
     const { scrollTop, clientHeight, scrollHeight } = el;
-    if (
-      scrollTop + clientHeight >= scrollHeight - 200 &&
-      files.length < totalFiles &&
-      !isLoadingFiles
-    ) {
+    if (scrollTop + clientHeight >= scrollHeight - 200 && files.length < totalFiles && !isLoadingFiles) {
       loadFiles(page + 1);
     }
   }, [files.length, totalFiles, isLoadingFiles, loadFiles, page]);
@@ -68,34 +65,24 @@ export default function FileTable() {
     }
   };
 
-  const handleDoubleClick = async (file: FlatFile) => {
-    try {
-      await invoke("open_in_explorer", { path: file.path });
-    } catch (e) {
-      console.error(e);
-    }
+  const handleContextMenu = (e: React.MouseEvent, file: FlatFile) => {
+    e.preventDefault();
+    setCtxMenu({ file, x: e.clientX, y: e.clientY });
   };
-
-  if (!tree) return null;
 
   const items = virtualizer.getVirtualItems();
   const paddingTop = items.length > 0 ? items[0].start : 0;
-  const paddingBottom =
-    items.length > 0
-      ? virtualizer.getTotalSize() - items[items.length - 1].end
-      : 0;
+  const paddingBottom = items.length > 0 ? virtualizer.getTotalSize() - items[items.length - 1].end : 0;
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          background: "#161625",
-          borderBottom: "1px solid #2a2a3e",
-          flexShrink: 0,
-        }}
-      >
+      <div style={{
+        display: "flex",
+        background: "var(--bg-secondary)",
+        borderBottom: "1px solid var(--border)",
+        flexShrink: 0,
+      }}>
         {COLUMNS.map((col) => {
           const colSort = col.key === "modified" ? "modified" : col.key === "name" ? "name" : "size";
           const isActive = colSort === sortBy;
@@ -108,7 +95,7 @@ export default function FileTable() {
                 flexShrink: 0,
                 padding: "6px 8px",
                 fontSize: 11,
-                color: isActive ? "#9FE1CB" : "#666",
+                color: isActive ? "var(--accent-hover)" : "var(--text-hint)",
                 cursor: "pointer",
                 userSelect: "none",
                 display: "flex",
@@ -138,13 +125,13 @@ export default function FileTable() {
                   height: ROW_HEIGHT,
                   display: "flex",
                   alignItems: "center",
-                  background: isEven ? "#0f0f1a" : "#111120",
+                  background: isEven ? "var(--bg-primary)" : "var(--bg-secondary)",
                   cursor: "pointer",
-                  borderBottom: "1px solid #1a1a2e",
+                  borderBottom: "1px solid var(--border)",
                 }}
-                onDoubleClick={() => handleDoubleClick(file)}
+                onContextMenu={(e) => handleContextMenu(e, file)}
               >
-                <Cell width={260} style={{ color: "#ccc", fontWeight: 500 }}>
+                <Cell width={260} style={{ color: "var(--text-primary)", fontWeight: 500 }}>
                   {file.name}
                 </Cell>
                 <Cell width={100}>
@@ -152,16 +139,16 @@ export default function FileTable() {
                     {CATEGORY_LABELS[file.category as FileCategory]}
                   </span>
                 </Cell>
-                <Cell width={60} style={{ color: "#666" }}>
+                <Cell width={60} style={{ color: "var(--text-hint)" }}>
                   {file.extension ? `.${file.extension}` : "—"}
                 </Cell>
-                <Cell width={90} style={{ color: "#e0e0ff", textAlign: "right" }}>
+                <Cell width={90} style={{ color: "var(--text-primary)", textAlign: "right" }}>
                   {formatSize(file.size)}
                 </Cell>
-                <Cell width={110} style={{ color: "#888" }}>
+                <Cell width={110} style={{ color: "var(--text-muted)" }}>
                   {formatDate(file.last_modified)}
                 </Cell>
-                <Cell width={300} style={{ color: "#444", fontSize: 10 }}>
+                <Cell width={300} style={{ color: "var(--text-hint)", fontSize: 10 }}>
                   {file.path}
                 </Cell>
               </div>
@@ -172,16 +159,18 @@ export default function FileTable() {
       </div>
 
       {isLoadingFiles && (
-        <div
-          style={{
-            padding: "4px 12px",
-            fontSize: 10,
-            color: "#555",
-            borderTop: "1px solid #2a2a3e",
-          }}
-        >
+        <div style={{ padding: "4px 12px", fontSize: 10, color: "var(--text-hint)", borderTop: "1px solid var(--border)" }}>
           Загрузка…
         </div>
+      )}
+
+      {ctxMenu && (
+        <ContextMenu
+          file={ctxMenu.file}
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          onClose={() => setCtxMenu(null)}
+        />
       )}
     </div>
   );
@@ -197,18 +186,16 @@ function Cell({
   style?: React.CSSProperties;
 }) {
   return (
-    <div
-      style={{
-        width,
-        flexShrink: 0,
-        padding: "0 8px",
-        fontSize: 12,
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        whiteSpace: "nowrap",
-        ...style,
-      }}
-    >
+    <div style={{
+      width,
+      flexShrink: 0,
+      padding: "0 8px",
+      fontSize: 12,
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap",
+      ...style,
+    }}>
       {children}
     </div>
   );

@@ -1,4 +1,3 @@
-import React from "react";
 import {
   PieChart,
   Pie,
@@ -7,7 +6,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useDiskStore } from "../../store/diskStore";
-import { CATEGORY_COLORS, CATEGORY_LABELS, FileCategory } from "../../types";
+import { CATEGORY_COLORS, FileCategory } from "../../types";
 import { formatSize } from "../../utils/format";
 
 export default function CategoryPie() {
@@ -16,9 +15,7 @@ export default function CategoryPie() {
   const setFilter = useDiskStore((s) => s.setFilter);
 
   if (!stats) {
-    return (
-      <div style={{ padding: 16, color: "#555", fontSize: 12 }}>Нет данных</div>
-    );
+    return <div style={{ padding: 16, color: "var(--text-hint)", fontSize: 12 }}>Нет данных</div>;
   }
 
   const data = stats.by_category.map((c) => ({

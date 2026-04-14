@@ -1,31 +1,33 @@
-import React from "react";
-import { useScan } from "../hooks/useScan";
+import { useDiskStore } from "../store/diskStore";
 import { truncateMiddle } from "../utils/format";
 
 export default function ScanButton() {
-  const { startScan, cancelScan, isScanning, progress, error, scanPath } = useScan();
+  const startScan = useDiskStore((s) => s.startScan);
+  const cancelScan = useDiskStore((s) => s.cancelScan);
+  const isScanning = useDiskStore((s) => s.isScanning);
+  const progress = useDiskStore((s) => s.progress);
+  const error = useDiskStore((s) => s.error);
+  const scanPath = useDiskStore((s) => s.scanPath);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "8px 12px",
-        background: "#0d0d1a",
-        borderBottom: "1px solid #2a2a3e",
-        flexShrink: 0,
-      }}
-    >
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      padding: "8px 12px",
+      background: "var(--bg-secondary)",
+      borderBottom: "1px solid var(--border)",
+      flexShrink: 0,
+    }}>
       {!isScanning ? (
         <button
           onClick={startScan}
           style={{
             padding: "6px 16px",
-            background: "#0F6E56",
-            color: "#9FE1CB",
+            background: "var(--accent)",
+            color: "#fff",
             border: "none",
-            borderRadius: 4,
+            borderRadius: 6,
             fontSize: 13,
             cursor: "pointer",
             fontWeight: 600,
@@ -38,10 +40,10 @@ export default function ScanButton() {
           onClick={cancelScan}
           style={{
             padding: "6px 16px",
-            background: "#993C1D",
-            color: "#ffaa88",
-            border: "none",
-            borderRadius: 4,
+            background: "var(--danger-bg)",
+            color: "var(--danger)",
+            border: "1px solid var(--danger)",
+            borderRadius: 6,
             fontSize: 13,
             cursor: "pointer",
             fontWeight: 600,
@@ -53,29 +55,29 @@ export default function ScanButton() {
 
       {isScanning && progress && (
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <div style={{ fontSize: 12, color: "#888" }}>
-            <span style={{ color: "#9FE1CB", fontWeight: 600 }}>
+          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+            <span style={{ color: "var(--accent-hover)", fontWeight: 600 }}>
               {progress.files_scanned.toLocaleString()}
             </span>{" "}
             файлов &nbsp;·&nbsp;
-            <span style={{ color: "#9FE1CB" }}>
+            <span style={{ color: "var(--accent-hover)" }}>
               {(progress.bytes_scanned / 1024 / 1024).toFixed(1)} MB
             </span>
           </div>
-          <div style={{ fontSize: 10, color: "#555" }}>
+          <div style={{ fontSize: 10, color: "var(--text-hint)" }}>
             {truncateMiddle(progress.current_path, 60)}
           </div>
         </div>
       )}
 
-      {!isScanning && scanPath && !progress && (
-        <div style={{ fontSize: 11, color: "#888" }}>
+      {!isScanning && scanPath && (
+        <div style={{ fontSize: 11, color: "var(--text-hint)" }}>
           {truncateMiddle(scanPath, 80)}
         </div>
       )}
 
       {error && (
-        <div style={{ fontSize: 11, color: "#E24B4A" }}>{error}</div>
+        <div style={{ fontSize: 11, color: "var(--danger)" }}>{error}</div>
       )}
     </div>
   );
