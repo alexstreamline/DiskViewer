@@ -1,13 +1,20 @@
 export type FileCategory =
-  | "image"
-  | "video"
-  | "audio"
-  | "document"
-  | "code"
-  | "archive"
-  | "executable"
-  | "data"
-  | "other";
+  | "image" | "video" | "audio" | "document"
+  | "code"  | "archive" | "executable" | "data" | "other";
+
+export type FolderScanState = "pending" | "scanning" | "priority" | "done";
+
+export type JunkCategory =
+  | "temp_files" | "log_files" | "app_cache"
+  | "node_modules" | "python_venv" | "orphaned_app"
+  | "old_downloads" | "build_artifacts";
+
+export type Screen = "map" | "analytics" | "files" | "duplicates" | "junk";
+
+export interface CategorySize {
+  category: FileCategory;
+  size: number;
+}
 
 export interface FileNode {
   name: string;
@@ -21,6 +28,23 @@ export interface FileNode {
   children: FileNode[];
   depth: number;
   file_count: number;
+  by_category: CategorySize[];
+}
+
+export interface FolderShallow {
+  name: string;
+  path: string;
+  size: number | null;
+  file_count: number | null;
+  by_category: CategorySize[] | null;
+  scan_state: FolderScanState;
+}
+
+export interface FolderScanComplete {
+  path: string;
+  size: number;
+  file_count: number;
+  by_category: CategorySize[];
 }
 
 export interface FlatFile {
@@ -40,17 +64,11 @@ export interface ScanProgress {
   current_path: string;
 }
 
-export interface CategoryStat {
-  category: FileCategory;
+export interface AgeBucket {
   label: string;
-  size: number;
+  max_days: number;
   count: number;
-}
-
-export interface ExtensionStat {
-  extension: string;
   size: number;
-  count: number;
 }
 
 export interface DiskStats {
@@ -64,6 +82,42 @@ export interface DiskStats {
   newest_files: FlatFile[];
 }
 
+export interface CategoryStat {
+  category: FileCategory;
+  label: string;
+  size: number;
+  count: number;
+}
+
+export interface ExtensionStat {
+  extension: string;
+  size: number;
+  count: number;
+}
+
+export interface DuplicateGroup {
+  hash: string;
+  file_size: number;
+  savings: number;
+  files: FlatFile[];
+}
+
+export interface DuplicateProgress {
+  files_hashed: number;
+  total_files: number;
+  bytes_hashed: number;
+}
+
+export interface JunkItem {
+  path: string;
+  name: string;
+  category: JunkCategory;
+  size: number;
+  confidence: number;
+  is_safe: boolean;
+  reason: string;
+}
+
 export interface FileFilter {
   category?: FileCategory;
   min_size?: number;
@@ -74,12 +128,9 @@ export interface FileFilter {
   name_contains?: string;
 }
 
-export interface ScanResult {
-  root: FileNode;
-  flat_files: FlatFile[];
-  stats: DiskStats;
-  scan_path: string;
-}
+export type FilesResponse = [FlatFile[], number];
+
+// ── Константы ────────────────────────────────────────────────────
 
 export const CATEGORY_COLORS: Record<FileCategory, string> = {
   image:      "#1D9E75",
@@ -103,4 +154,15 @@ export const CATEGORY_LABELS: Record<FileCategory, string> = {
   executable: "Программы",
   data:       "Данные",
   other:      "Прочее",
+};
+
+export const JUNK_CATEGORY_LABELS: Record<JunkCategory, string> = {
+  temp_files:      "Временные файлы",
+  log_files:       "Логи",
+  app_cache:       "Кэш приложений",
+  node_modules:    "node_modules",
+  python_venv:     "Python venv",
+  orphaned_app:    "Остатки программ",
+  old_downloads:   "Старые загрузки",
+  build_artifacts: "Артефакты сборки",
 };

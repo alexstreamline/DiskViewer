@@ -1,3 +1,46 @@
+/* ── Светлая тема (default) ───────────────────────────────────── */
+:root, [data-theme="light"] {
+  --bg-primary:    #FFFFFF;
+  --bg-secondary:  #F4F5F7;
+  --bg-surface:    #FFFFFF;
+  --bg-hover:      #F0FAF6;
+  --bg-active:     #E8F5F0;
+  --border:        #E8EAED;
+  --border-strong: #DADCE0;
+  --text-primary:  #1A1A2E;
+  --text-muted:    #5F6368;
+  --text-hint:     #9AA0A6;
+  --accent:        #0F6E56;
+  --accent-hover:  #1D9E75;
+  --accent-bg:     #F0FAF6;
+  --danger:        #C0392B;
+  --danger-bg:     #FDE8E8;
+  --warn:          #D4843A;
+  --warn-bg:       #FFF3CD;
+}
+
+/* ── Тёмная тема ─────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg-primary:    #0F0F1A;
+  --bg-secondary:  #161625;
+  --bg-surface:    #1E1E35;
+  --bg-hover:      #0F1A16;
+  --bg-active:     #152213;
+  --border:        #2A2A3E;
+  --border-strong: #3A3A5E;
+  --text-primary:  #E0E0FF;
+  --text-muted:    #888880;
+  --text-hint:     #555555;
+  --accent:        #1D9E75;
+  --accent-hover:  #5DCAA5;
+  --accent-bg:     #0F1A16;
+  --danger:        #E24B4A;
+  --danger-bg:     #3A1A1A;
+  --warn:          #EF9F27;
+  --warn-bg:       #2A1E00;
+}
+
+/* ── Reset ───────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -12,21 +55,27 @@ html, body, #root {
 body {
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   font-size: 13px;
-  background: #0f0f1a;
-  color: #e0e0ff;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
 }
 
+button {
+  font-family: inherit;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0f0f1a;
+  background: var(--bg-primary);
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2a3e;
+  background: var(--border-strong);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a3a5e;
+  background: var(--text-hint);
 }

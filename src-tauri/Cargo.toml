@@ -21,11 +21,4 @@ rayon               = "1"
 tokio               = { version = "1", features = ["full"] }
 anyhow              = "1"
 chrono              = { version = "0.4", features = ["serde"] }
-
-[profile.dev]
-incremental = true
-
-[profile.release]
-opt-level = "s"
-lto       = true
-strip     = true
+sha2                = "0.10"

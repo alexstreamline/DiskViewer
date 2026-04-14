@@ -2,10 +2,17 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import {
+  AgeBucket,
   DiskStats,
+  DuplicateGroup,
+  DuplicateProgress,
   FileFilter,
   FileNode,
   FlatFile,
+  FolderScanComplete,
+  FolderShallow,
+  JunkItem,
+  Screen,
   ScanProgress,
 } from "../types";
 
@@ -20,10 +27,17 @@ interface DiskStore {
   // Data slice
   tree: FileNode | null;
   stats: DiskStats | null;
+  histogram: AgeBucket[];
   scanPath: string | null;
+
+  // TopLevel slice — обновляется постепенно по событиям scan_folder_complete
+  folders: Map<string, FolderShallow>;
+  setFolderComplete: (data: FolderScanComplete) => void;
 
   // UI slice
   currentPath: string | null;
+  activeScreen: Screen;
+  theme: "light" | "dark";
   filter: FileFilter;
   sortBy: "size" | "name" | "modified";
   sortDesc: boolean;
@@ -34,14 +48,30 @@ interface DiskStore {
   page: number;
   isLoadingFiles: boolean;
 
+  // Duplicates slice
+  groups: DuplicateGroup[];
+  isSearchingDuplicates: boolean;
+  dupProgress: DuplicateProgress | null;
+
+  // Junk slice
+  junkItems: JunkItem[];
+  isDetectingJunk: boolean;
+  selectedJunkPaths: Set<string>;
+
   // Actions
   startScan: () => Promise<void>;
   cancelScan: () => void;
   setCurrentPath: (path: string | null) => void;
+  setActiveScreen: (screen: Screen) => void;
+  setTheme: (theme: "light" | "dark") => void;
   setFilter: (filter: Partial<FileFilter>) => void;
   resetFilter: () => void;
   setSortBy: (col: "size" | "name" | "modified", desc: boolean) => void;
   loadFiles: (page: number) => Promise<void>;
+  findDuplicates: () => Promise<void>;
+  detectJunk: () => Promise<void>;
+  toggleJunkPath: (path: string) => void;
+  clearJunkSelection: () => void;
 }
 
 const emptyFilter: FileFilter = {};
@@ -53,9 +83,29 @@ export const useDiskStore = create<DiskStore>((set, get) => ({
 
   tree: null,
   stats: null,
+  histogram: [],
   scanPath: null,
 
+  folders: new Map(),
+  setFolderComplete: (data) => {
+    set((state) => {
+      const folders = new Map(state.folders);
+      const existing = folders.get(data.path);
+      folders.set(data.path, {
+        name: existing?.name ?? data.path.split(/[\\/]/).pop() ?? data.path,
+        path: data.path,
+        size: data.size,
+        file_count: data.file_count,
+        by_category: data.by_category,
+        scan_state: "done",
+      });
+      return { folders };
+    });
+  },
+
   currentPath: null,
+  activeScreen: "map",
+  theme: "dark",
   filter: emptyFilter,
   sortBy: "size",
   sortDesc: true,
@@ -64,6 +114,14 @@ export const useDiskStore = create<DiskStore>((set, get) => ({
   totalFiles: 0,
   page: 0,
   isLoadingFiles: false,
+
+  groups: [],
+  isSearchingDuplicates: false,
+  dupProgress: null,
+
+  junkItems: [],
+  isDetectingJunk: false,
+  selectedJunkPaths: new Set(),
 
   startScan: async () => {
     const { open } = await import("@tauri-apps/plugin-dialog");
@@ -76,43 +134,58 @@ export const useDiskStore = create<DiskStore>((set, get) => ({
       error: null,
       tree: null,
       stats: null,
+      histogram: [],
       scanPath: selected,
       currentPath: null,
       filter: emptyFilter,
       files: [],
       totalFiles: 0,
       page: 0,
+      folders: new Map(),
+      groups: [],
+      junkItems: [],
     });
 
-    let unlistenProgress: UnlistenFn | null = null;
-    let unlistenComplete: UnlistenFn | null = null;
-    let unlistenCancelled: UnlistenFn | null = null;
+    // Фаза 0: мгновенно показываем папки верхнего уровня
+    try {
+      const topLevel = await invoke<FolderShallow[]>("scan_top_level_cmd", { path: selected });
+      const folderMap = new Map(topLevel.map((f) => [f.path, f]));
+      set({ folders: folderMap });
+    } catch {
+      // не критично — продолжаем сканирование
+    }
+
+    const unlisteners: UnlistenFn[] = [];
 
     try {
-      unlistenProgress = await listen<ScanProgress>("scan_progress", (e) => {
-        set({ progress: e.payload });
-      });
+      // Подписываемся на обновления по папкам
+      unlisteners.push(
+        await listen<FolderScanComplete>("scan_folder_complete", (e) => {
+          get().setFolderComplete(e.payload);
+        })
+      );
 
-      unlistenComplete = await listen("scan_complete", async () => {
-        const [tree, stats] = await Promise.all([
-          invoke<FileNode>("get_tree"),
-          invoke<DiskStats>("get_stats"),
-        ]);
-        set({ tree, stats, isScanning: false, progress: null });
-        await get().loadFiles(0);
-      });
+      unlisteners.push(
+        await listen<ScanProgress>("scan_progress", (e) => {
+          set({ progress: e.payload });
+        })
+      );
 
-      unlistenCancelled = await listen("scan_cancelled", () => {
-        set({ isScanning: false, progress: null });
-      });
-
+      // Фаза 1: полное сканирование
       await invoke("start_scan", { path: selected });
+
+      const [tree, stats, histogram] = await Promise.all([
+        invoke<FileNode>("get_tree"),
+        invoke<DiskStats>("get_stats"),
+        invoke<AgeBucket[]>("get_age_histogram"),
+      ]);
+
+      set({ tree, stats, histogram, isScanning: false, progress: null });
+      await get().loadFiles(0);
     } catch (e) {
       set({ isScanning: false, error: String(e) });
     } finally {
-      unlistenProgress?.();
-      unlistenComplete?.();
-      unlistenCancelled?.();
+      unlisteners.forEach((u) => u());
     }
   },
 
@@ -124,9 +197,17 @@ export const useDiskStore = create<DiskStore>((set, get) => ({
     set({ currentPath: path });
   },
 
+  setActiveScreen: (screen) => {
+    set({ activeScreen: screen });
+  },
+
+  setTheme: (theme) => {
+    set({ theme });
+    document.documentElement.setAttribute("data-theme", theme);
+  },
+
   setFilter: (partial) => {
     const filter = { ...get().filter, ...partial };
-    // Remove undefined keys
     Object.keys(filter).forEach((k) => {
       if ((filter as Record<string, unknown>)[k] === undefined) {
         delete (filter as Record<string, unknown>)[k];
@@ -163,13 +244,56 @@ export const useDiskStore = create<DiskStore>((set, get) => ({
         page,
         isLoadingFiles: false,
       }));
-    } catch (e) {
+    } catch {
       set({ isLoadingFiles: false });
     }
   },
+
+  findDuplicates: async () => {
+    set({ isSearchingDuplicates: true, dupProgress: null, groups: [] });
+
+    const unlisteners: UnlistenFn[] = [];
+    try {
+      unlisteners.push(
+        await listen<DuplicateProgress>("duplicate_progress", (e) => {
+          set({ dupProgress: e.payload });
+        })
+      );
+      const groups = await invoke<DuplicateGroup[]>("find_duplicates_cmd");
+      set({ groups, isSearchingDuplicates: false, dupProgress: null });
+    } catch (e) {
+      set({ isSearchingDuplicates: false, error: String(e) });
+    } finally {
+      unlisteners.forEach((u) => u());
+    }
+  },
+
+  detectJunk: async () => {
+    set({ isDetectingJunk: true, junkItems: [] });
+    try {
+      const items = await invoke<JunkItem[]>("detect_junk_cmd");
+      set({ junkItems: items, isDetectingJunk: false });
+    } catch (e) {
+      set({ isDetectingJunk: false, error: String(e) });
+    }
+  },
+
+  toggleJunkPath: (path) => {
+    set((state) => {
+      const next = new Set(state.selectedJunkPaths);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return { selectedJunkPaths: next };
+    });
+  },
+
+  clearJunkSelection: () => {
+    set({ selectedJunkPaths: new Set() });
+  },
 }));
 
-// Selectors
+// ── Selectors ────────────────────────────────────────────────────
+
 export function useCurrentNode(): FileNode | null {
   const { tree, currentPath } = useDiskStore();
   if (!tree) return null;

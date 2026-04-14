@@ -8,7 +8,7 @@ pub fn classify(extension: &str) -> FileCategory {
 
         // Video
         "mp4" | "mkv" | "avi" | "mov" | "wmv" | "flv" | "webm" | "m4v"
-        | "3gp" | "ts" | "mts" => FileCategory::Video,
+        | "3gp" | "mts" | "m2ts" => FileCategory::Video,
 
         // Audio
         "mp3" | "flac" | "wav" | "aac" | "ogg" | "m4a" | "wma" | "opus" | "aiff" => {
